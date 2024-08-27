@@ -12,13 +12,12 @@ from azure.search.documents.indexes.models import (
     SearchableField,
     SearchField,
     SearchFieldDataType,
-    ComplexField,
     CorsOptions,
     VectorSearch,
     VectorSearchProfile,
     HnswAlgorithmConfiguration
 )
-from teams.ai.embeddings import AzureOpenAIEmbeddings, AzureOpenAIEmbeddingsOptions
+import openai  # Corrected import
 
 from get_data import get_doc_data
 
@@ -39,7 +38,7 @@ async def upsert_documents(client: SearchClient, documents: list[Doc]):
 async def create_index_if_not_exists(client: SearchIndexClient, name: str):
     doc_index = SearchIndex(
         name=name,
-        fields = [
+        fields=[
             SimpleField(name="docId", type=SearchFieldDataType.String, key=True),
             SimpleField(name="docTitle", type=SearchFieldDataType.String),
             SearchableField(name="description", type=SearchFieldDataType.String, searchable=True),
@@ -47,7 +46,7 @@ async def create_index_if_not_exists(client: SearchIndexClient, name: str):
         ],
         scoring_profiles=[],
         cors_options=CorsOptions(allowed_origins=["*"]),
-        vector_search = VectorSearch(
+        vector_search=VectorSearch(
             profiles=[VectorSearchProfile(name="my-vector-config", algorithm_configuration_name="my-algorithms-config")],
             algorithms=[HnswAlgorithmConfiguration(name="my-algorithms-config")],
         )
@@ -56,7 +55,7 @@ async def create_index_if_not_exists(client: SearchIndexClient, name: str):
     client.create_or_update_index(doc_index)
 
 async def setup(search_api_key, search_api_endpoint):
-    index = 'space-facts-index'
+    index = 'space-facts-index1'
 
     credentials = AzureKeyCredential(search_api_key)
 
@@ -68,11 +67,14 @@ async def setup(search_api_key, search_api_endpoint):
 
     search_client = SearchClient(search_api_endpoint, index, credentials)
 
-    embeddings = AzureOpenAIEmbeddings(AzureOpenAIEmbeddingsOptions(
-        azure_api_key=os.getenv('SECRET_AZURE_OPENAI_API_KEY'),
-        azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
-        azure_deployment=os.getenv('AZURE_OPENAI_EMBEDDING_DEPLOYMENT')
-    ))
+    # Use OpenAI embeddings
+    openai.api_key = os.getenv('SECRET_AZURE_OPENAI_API_KEY')
+    response = openai.Embedding.create(
+        input="armelyembed",
+        model="text-embedding-ada-002"
+    )
+    embeddings = response['data'][0]['embedding']
+    
     data = await get_doc_data(embeddings=embeddings)
     await upsert_documents(search_client, data)
 
@@ -82,4 +84,3 @@ search_api_key = os.getenv('SECRET_AZURE_SEARCH_KEY')
 search_api_endpoint = os.getenv('AZURE_SEARCH_ENDPOINT')
 asyncio.run(setup(search_api_key, search_api_endpoint))
 print("setup finished")
-
