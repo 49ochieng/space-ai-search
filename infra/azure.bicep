@@ -1,6 +1,6 @@
 @maxLength(20)
 @minLength(4)
-@description('Used to generate names for all resources in this file ')
+@description('Used to generate names for all resources in this file.')
 param resourceBaseName string
 
 @description('Required when create Azure Bot service')
